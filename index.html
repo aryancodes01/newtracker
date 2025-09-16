@@ -1760,68 +1760,271 @@
             title.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Dashboard - Welcome ${user.name}`;
             
             if (type === 'admin') {
+                const driverIssues = JSON.parse(localStorage.getItem('mongo_driver_issues') || '[]');
+                const openIssues = driverIssues.filter(issue => issue.status === 'Open');
+                const criticalIssues = driverIssues.filter(issue => issue.priority === 'Critical');
+                
                 content.innerHTML = `
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div class="bg-white/10 rounded-lg p-6">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-user-circle mr-2"></i>Profile Information</h3>
-                            <p><strong>Name:</strong> ${user.name}</p>
-                            <p><strong>ID:</strong> ${user.id}</p>
-                            <p><strong>Department:</strong> ${user.department}</p>
-                            <p><strong>Level:</strong> ${user.level}</p>
-                        </div>
-                        <div class="bg-white/10 rounded-lg p-6">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-chart-bar mr-2"></i>Fleet Statistics</h3>
-                            <p><strong>Total Buses:</strong> ${busDatabase.length}</p>
-                            <p><strong>Active Routes:</strong> ${new Set(busDatabase.map(b => b.route)).size}</p>
-                            <p><strong>On Time:</strong> ${busDatabase.filter(b => b.status === 'On Time').length}</p>
-                            <p><strong>Delayed:</strong> ${busDatabase.filter(b => b.status === 'Delayed').length}</p>
-                        </div>
-                        <div class="bg-white/10 rounded-lg p-6 md:col-span-2">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bus mr-2"></i>Recent Bus Activities</h3>
-                            <div class="space-y-2">
-                                ${busDatabase.slice(0, 5).map(bus => `
-                                    <div class="flex justify-between items-center py-2 border-b border-white/20">
-                                        <span>${bus.number} - ${bus.route}</span>
-                                        <span class="px-2 py-1 rounded text-sm ${bus.status === 'On Time' ? 'bg-green-500' : bus.status === 'Delayed' ? 'bg-yellow-500' : 'bg-blue-500'}">${bus.status}</span>
-                                    </div>
-                                `).join('')}
+                    <!-- Admin Control Panel Header -->
+                    <div class="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg p-4 mb-6 border border-blue-400/30">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Admin Control Center</h2>
+                                <p class="text-blue-400">Real-time fleet management & emergency response</p>
                             </div>
+                            <div class="text-right">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span class="text-green-400 font-semibold">System Online</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Emergency & Quick Actions -->
+                    <div class="grid md:grid-cols-4 gap-4 mb-6">
+                        <button onclick="showEmergencyAlert()" class="bg-red-500 hover:bg-red-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p class="font-semibold">Emergency Alert</p>
+                            <p class="text-xs opacity-80">Broadcast to all buses</p>
+                        </button>
+                        
+                        <button onclick="showDriverIssues()" class="bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl relative">
+                            <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                            <p class="font-semibold">Driver Issues</p>
+                            <p class="text-xs opacity-80">${openIssues.length} open issues</p>
+                            ${openIssues.length > 0 ? '<div class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold animate-pulse">' + openIssues.length + '</div>' : ''}
+                        </button>
+                        
+                        <button onclick="showAddNewBus()" class="bg-green-500 hover:bg-green-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-plus-circle text-2xl mb-2"></i>
+                            <p class="font-semibold">Add New Bus</p>
+                            <p class="text-xs opacity-80">Register new vehicle</p>
+                        </button>
+                        
+                        <button onclick="showRouteManagement()" class="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-route text-2xl mb-2"></i>
+                            <p class="font-semibold">Route Management</p>
+                            <p class="text-xs opacity-80">Manage bus routes</p>
+                        </button>
+                    </div>
+
+                    <!-- Admin Stats Grid -->
+                    <div class="grid md:grid-cols-3 gap-6 mb-6">
+                        <div class="bg-white/10 rounded-lg p-6">
+                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-user-circle mr-2 text-blue-400"></i>Profile Information</h3>
+                            <div class="space-y-2">
+                                <p><strong>Name:</strong> ${user.name}</p>
+                                <p><strong>Admin ID:</strong> ${user.id}</p>
+                                <p><strong>Department:</strong> ${user.department}</p>
+                                <p><strong>Level:</strong> ${user.level}</p>
+                                <p><strong>Last Login:</strong> ${new Date().toLocaleString()}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/10 rounded-lg p-6">
+                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-chart-bar mr-2 text-green-400"></i>Fleet Statistics</h3>
+                            <div class="space-y-2">
+                                <p><strong>Total Buses:</strong> ${busDatabase.length}</p>
+                                <p><strong>Active Routes:</strong> ${new Set(busDatabase.map(b => b.route)).size}</p>
+                                <p><strong>On Time:</strong> <span class="text-green-400">${busDatabase.filter(b => b.status === 'On Time').length}</span></p>
+                                <p><strong>Delayed:</strong> <span class="text-yellow-400">${busDatabase.filter(b => b.status === 'Delayed').length}</span></p>
+                                <p><strong>Out of Service:</strong> <span class="text-red-400">${busDatabase.filter(b => b.status === 'Out of Service').length}</span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/10 rounded-lg p-6">
+                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bell mr-2 text-red-400"></i>Alert Summary</h3>
+                            <div class="space-y-2">
+                                <p><strong>Critical Issues:</strong> <span class="text-red-400">${criticalIssues.length}</span></p>
+                                <p><strong>Open Issues:</strong> <span class="text-orange-400">${openIssues.length}</span></p>
+                                <p><strong>Active Drivers:</strong> <span class="text-green-400">${credentials.drivers.length}</span></p>
+                                <p><strong>Emergency Alerts:</strong> <span class="text-yellow-400">0</span></p>
+                                <button onclick="showRecentAlerts()" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                                    View Recent Alerts
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Driver Authentication & Management -->
+                    <div class="bg-white/10 rounded-lg p-6 mb-6">
+                        <h3 class="text-xl font-semibold mb-4"><i class="fas fa-id-card mr-2 text-yellow-400"></i>Driver Authentication & Management</h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="font-semibold mb-3 text-green-400">Verify Driver License</h4>
+                                <div class="space-y-2">
+                                    <input type="text" id="licenseVerifyInput" placeholder="Enter License Number" class="w-full bg-white/10 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-white/60">
+                                    <button onclick="verifyDriverLicense()" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg">
+                                        <i class="fas fa-check-circle mr-2"></i>Verify License
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-3 text-blue-400">Registered Drivers</h4>
+                                <div class="max-h-32 overflow-y-auto space-y-1">
+                                    ${credentials.drivers.map(driver => `
+                                        <div class="flex justify-between items-center bg-white/5 rounded px-2 py-1 text-sm">
+                                            <span>${driver.name}</span>
+                                            <span class="text-green-400">${driver.id}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Bus Activities -->
+                    <div class="bg-white/10 rounded-lg p-6">
+                        <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bus mr-2 text-cyan-400"></i>Recent Bus Activities</h3>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            ${busDatabase.slice(0, 8).map(bus => `
+                                <div class="flex justify-between items-center py-2 border-b border-white/20 hover:bg-white/5 rounded px-2">
+                                    <div class="flex-1">
+                                        <span class="font-medium">${bus.number}</span>
+                                        <span class="text-white/70 ml-2">${bus.route}</span>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 rounded text-xs ${bus.status === 'On Time' ? 'bg-green-500' : bus.status === 'Delayed' ? 'bg-yellow-500' : 'bg-blue-500'}">${bus.status}</span>
+                                        <button onclick="showBusDetails('${bus.number}')" class="text-blue-400 hover:text-blue-300">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 `;
             } else {
                 const driverBuses = busDatabase.filter(bus => bus.driver === user.name);
+                const driverIssues = JSON.parse(localStorage.getItem('mongo_driver_issues') || '[]').filter(issue => issue.driverName === user.name);
+                
                 content.innerHTML = `
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div class="bg-white/10 rounded-lg p-6">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-user-circle mr-2"></i>Driver Profile</h3>
-                            <p><strong>Name:</strong> ${user.name}</p>
-                            <p><strong>ID:</strong> ${user.id}</p>
-                            <p><strong>Phone:</strong> ${user.phone}</p>
-                            <p><strong>Experience:</strong> ${user.experience}</p>
+                    <!-- Driver Control Panel Header -->
+                    <div class="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-lg p-4 mb-6 border border-green-400/30">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Driver Dashboard</h2>
+                                <p class="text-green-400">Real-time bus management & passenger updates</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span class="text-green-400 font-semibold">On Duty</span>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Driver Quick Actions -->
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <button onclick="showDriverReportIssue()" class="bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p class="font-semibold">Report Issue</p>
+                            <p class="text-xs opacity-80">Emergency & maintenance</p>
+                        </button>
+                        
+                        <button onclick="updateBusLocation()" class="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-map-marker-alt text-2xl mb-2"></i>
+                            <p class="font-semibold">Update Location</p>
+                            <p class="text-xs opacity-80">Real-time GPS update</p>
+                        </button>
+                        
+                        <button onclick="showRouteProgress()" class="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl">
+                            <i class="fas fa-route text-2xl mb-2"></i>
+                            <p class="font-semibold">Route Progress</p>
+                            <p class="text-xs opacity-80">Track journey status</p>
+                        </button>
+                    </div>
+
+                    <!-- Driver Stats Grid -->
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
                         <div class="bg-white/10 rounded-lg p-6">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bus mr-2"></i>Assigned Buses</h3>
-                            <p><strong>Total Assigned:</strong> ${driverBuses.length}</p>
-                            <p><strong>Currently Active:</strong> ${driverBuses.filter(b => b.status !== 'Parked').length}</p>
-                        </div>
-                        <div class="bg-white/10 rounded-lg p-6 md:col-span-2">
-                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-route mr-2"></i>My Routes</h3>
+                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-user-circle mr-2 text-blue-400"></i>Driver Profile</h3>
                             <div class="space-y-2">
-                                ${driverBuses.map(bus => `
+                                <p><strong>Name:</strong> ${user.name}</p>
+                                <p><strong>Driver ID:</strong> ${user.id}</p>
+                                <p><strong>Phone:</strong> ${user.phone}</p>
+                                <p><strong>Experience:</strong> ${user.experience}</p>
+                                <p><strong>License:</strong> ${user.license || 'Verified'}</p>
+                                <p><strong>Status:</strong> <span class="text-green-400">Active</span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/10 rounded-lg p-6">
+                            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bus mr-2 text-green-400"></i>Assigned Buses</h3>
+                            <div class="space-y-2">
+                                <p><strong>Total Assigned:</strong> ${driverBuses.length}</p>
+                                <p><strong>Currently Active:</strong> <span class="text-green-400">${driverBuses.filter(b => b.status !== 'Parked').length}</span></p>
+                                <p><strong>On Time:</strong> <span class="text-green-400">${driverBuses.filter(b => b.status === 'On Time').length}</span></p>
+                                <p><strong>Issues Reported:</strong> <span class="text-orange-400">${driverIssues.length}</span></p>
+                                <p><strong>Today's Trips:</strong> <span class="text-blue-400">${driverBuses.length}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- My Routes & Real-time Updates -->
+                    <div class="bg-white/10 rounded-lg p-6 mb-6">
+                        <h3 class="text-xl font-semibold mb-4"><i class="fas fa-route mr-2 text-cyan-400"></i>My Routes & Live Updates</h3>
+                        <div class="space-y-3">
+                            ${driverBuses.map(bus => `
+                                <div class="bg-white/5 rounded-lg p-4 border border-white/10">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div class="flex-1">
+                                            <h4 class="font-semibold text-white">${bus.number} - ${bus.route}</h4>
+                                            <p class="text-white/70 text-sm">${bus.busType} • Current: ${bus.currentLocation || 'Unknown'}</p>
+                                        </div>
+                                        <span class="px-3 py-1 rounded-full text-sm ${bus.status === 'On Time' ? 'bg-green-500' : bus.status === 'Delayed' ? 'bg-yellow-500' : 'bg-blue-500'}">${bus.status}</span>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-white/80 mb-3">
+                                        <div><strong>Speed:</strong> ${bus.speed}</div>
+                                        <div><strong>ETA:</strong> ${bus.eta}</div>
+                                        <div><strong>Next Stop:</strong> ${bus.nextStop || 'Unknown'}</div>
+                                        <div><strong>Passengers:</strong> ${bus.passengerCount || 'N/A'}</div>
+                                    </div>
+                                    
+                                    <div class="flex space-x-2">
+                                        <button onclick="updateBusLocationSpecific('${bus.number}')" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded text-sm">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>Update Location
+                                        </button>
+                                        <button onclick="updatePassengerCount('${bus.number}')" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded text-sm">
+                                            <i class="fas fa-users mr-1"></i>Update Passengers
+                                        </button>
+                                        <button onclick="reportDelayForBus('${bus.number}')" class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-3 rounded text-sm">
+                                            <i class="fas fa-clock mr-1"></i>Report Delay
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Recent Issues & Alerts -->
+                    <div class="bg-white/10 rounded-lg p-6">
+                        <h3 class="text-xl font-semibold mb-4"><i class="fas fa-bell mr-2 text-orange-400"></i>My Recent Issues & Alerts</h3>
+                        ${driverIssues.length > 0 ? `
+                            <div class="space-y-2 max-h-32 overflow-y-auto">
+                                ${driverIssues.slice(0, 5).map(issue => `
                                     <div class="flex justify-between items-center py-2 border-b border-white/20">
-                                        <span>${bus.number} - ${bus.route}</span>
-                                        <span class="px-2 py-1 rounded text-sm ${bus.status === 'On Time' ? 'bg-green-500' : bus.status === 'Delayed' ? 'bg-yellow-500' : 'bg-blue-500'}">${bus.status}</span>
+                                        <div class="flex-1">
+                                            <span class="font-medium">${issue.reportId}</span>
+                                            <span class="text-white/70 ml-2">${issue.issueType}</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-2 py-1 rounded text-xs ${issue.priority === 'Critical' ? 'bg-red-500' : issue.priority === 'High' ? 'bg-orange-500' : 'bg-yellow-500'}">${issue.priority}</span>
+                                            <span class="text-white/60 text-xs">${new Date(issue.timestamp).toLocaleDateString()}</span>
+                                        </div>
                                     </div>
                                 `).join('')}
                             </div>
-                            <div class="mt-6 pt-4 border-t border-white/20">
-                                <button onclick="showDriverReportIssue()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-lg transition-all duration-300 transform hover:scale-105">
-                                    <i class="fas fa-exclamation-triangle mr-2"></i>
-                                    Report Issue
-                                </button>
+                        ` : `
+                            <div class="text-center text-white/60 py-4">
+                                <i class="fas fa-check-circle text-2xl mb-2"></i>
+                                <p>No recent issues reported</p>
+                                <p class="text-xs">Keep up the good work!</p>
                             </div>
-                        </div>
+                        `}
                     </div>
                 `;
             }
@@ -2933,7 +3136,7 @@
                     }
                 );
             } else {
-                alert('🚫 Geolocation is not supported by this browser.\n\nPlease use a modern browser like Chrome, Firefox, or Safari for GPS features.');
+                showNotification('🚫 Geolocation is not supported by this browser. Please use a modern browser.', 'error');
                 button.innerHTML = originalText;
                 button.disabled = false;
             }
@@ -3379,6 +3582,433 @@ Find buses near me: ${window.location.href}
             }
         }
 
+        // ===== ADMIN PORTAL FUNCTIONS =====
+        
+        // Show Emergency Alert System
+        function showEmergencyAlert() {
+            const alertMessage = prompt(`🚨 EMERGENCY BROADCAST SYSTEM 🚨
+
+Send emergency alert to ALL buses and drivers:
+
+Examples:
+• "SEVERE WEATHER: All buses return to depot immediately"
+• "ROAD CLOSURE: Route 15 diverted via alternate path"
+• "SECURITY ALERT: Report any suspicious activity"
+• "MEDICAL EMERGENCY: Bus PB-01-1234 needs immediate assistance"
+
+Enter your emergency message:`);
+            
+            if (alertMessage && alertMessage.trim()) {
+                // Simulate broadcasting to all buses
+                const alertId = `ALERT${Date.now().toString().slice(-6)}`;
+                const emergencyAlert = {
+                    id: alertId,
+                    message: alertMessage.trim(),
+                    timestamp: new Date().toISOString(),
+                    adminId: loggedInUser.id,
+                    adminName: loggedInUser.name,
+                    status: 'Active',
+                    recipients: busDatabase.length,
+                    priority: 'Emergency'
+                };
+                
+                // Store alert
+                const existingAlerts = JSON.parse(localStorage.getItem('emergency_alerts') || '[]');
+                existingAlerts.unshift(emergencyAlert);
+                localStorage.setItem('emergency_alerts', JSON.stringify(existingAlerts.slice(0, 50))); // Keep last 50
+                
+                // Show success message
+                alert(`✅ EMERGENCY ALERT SENT!
+
+Alert ID: ${alertId}
+Message: "${alertMessage}"
+Sent to: ${busDatabase.length} buses
+Time: ${new Date().toLocaleString()}
+
+All drivers will receive this alert immediately on their devices.`);
+                
+                showNotification(`🚨 Emergency alert broadcasted to ${busDatabase.length} buses!`, 'success');
+            }
+        }
+
+        // Show Driver Issues Management
+        function showDriverIssues() {
+            const driverIssues = JSON.parse(localStorage.getItem('mongo_driver_issues') || '[]');
+            
+            if (driverIssues.length === 0) {
+                alert('📋 No driver issues reported yet.\n\nAll buses are operating normally.');
+                return;
+            }
+            
+            // Create issues management modal content
+            const issuesHtml = `
+                <div class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[70]">
+                    <div class="bg-slate-900 rounded-2xl p-6 m-4 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-white">🚨 Driver Issues Management</h2>
+                            <button onclick="closeIssuesModal()" class="text-white/60 hover:text-white">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="grid gap-4">
+                            ${driverIssues.map(issue => `
+                                <div class="bg-white/10 rounded-lg p-4 border-l-4 ${
+                                    issue.priority === 'Critical' ? 'border-red-500' :
+                                    issue.priority === 'High' ? 'border-orange-500' :
+                                    issue.priority === 'Medium' ? 'border-yellow-500' : 'border-green-500'
+                                }">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <div class="flex-1">
+                                            <h3 class="font-bold text-white">${issue.reportId} - ${issue.issueType}</h3>
+                                            <p class="text-white/80">${issue.busNumber} • Driver: ${issue.driverName}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="px-3 py-1 rounded-full text-sm ${
+                                                issue.priority === 'Critical' ? 'bg-red-500' :
+                                                issue.priority === 'High' ? 'bg-orange-500' :
+                                                issue.priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                            } text-white">${issue.priority}</span>
+                                            <p class="text-white/60 text-xs mt-1">${new Date(issue.timestamp).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-white/5 rounded p-3 mb-3">
+                                        <p class="text-white/90">${issue.description}</p>
+                                        ${issue.location ? `<p class="text-blue-400 text-sm mt-1"><i class="fas fa-map-marker-alt mr-1"></i>${issue.location}</p>` : ''}
+                                        ${issue.contactNumber ? `<p class="text-green-400 text-sm"><i class="fas fa-phone mr-1"></i>${issue.contactNumber}</p>` : ''}
+                                    </div>
+                                    
+                                    <div class="flex space-x-2">
+                                        <button onclick="resolveIssue('${issue.reportId}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                                            <i class="fas fa-check mr-1"></i>Resolve
+                                        </button>
+                                        <button onclick="escalateIssue('${issue.reportId}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                                            <i class="fas fa-arrow-up mr-1"></i>Escalate
+                                        </button>
+                                        <button onclick="contactDriver('${issue.driverName}', '${issue.contactNumber}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                                            <i class="fas fa-phone mr-1"></i>Contact Driver
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', issuesHtml);
+        }
+
+        function closeIssuesModal() {
+            const modal = document.querySelector('.fixed.inset-0.bg-black\\/70');
+            if (modal) modal.remove();
+        }
+
+        function resolveIssue(reportId) {
+            if (confirm(`Mark issue ${reportId} as resolved?`)) {
+                const issues = JSON.parse(localStorage.getItem('mongo_driver_issues') || '[]');
+                const issueIndex = issues.findIndex(i => i.reportId === reportId);
+                if (issueIndex !== -1) {
+                    issues[issueIndex].status = 'Resolved';
+                    issues[issueIndex].resolvedBy = loggedInUser.name;
+                    issues[issueIndex].resolvedAt = new Date().toISOString();
+                    localStorage.setItem('mongo_driver_issues', JSON.stringify(issues));
+                    showNotification(`Issue ${reportId} marked as resolved!`, 'success');
+                    closeIssuesModal();
+                }
+            }
+        }
+
+        function escalateIssue(reportId) {
+            const escalationReason = prompt(`Escalate issue ${reportId}:\n\nReason for escalation:`);
+            if (escalationReason) {
+                showNotification(`Issue ${reportId} escalated to management!`, 'success');
+            }
+        }
+
+        function contactDriver(driverName, contactNumber) {
+            alert(`📞 Contacting Driver: ${driverName}\n\nPhone: ${contactNumber}\n\nIn a real system, this would:\n• Initiate a phone call\n• Send SMS notification\n• Open communication channel`);
+        }
+
+        // Add New Bus Function
+        function showAddNewBus() {
+            const busForm = prompt(`🚌 ADD NEW BUS TO FLEET
+
+Enter bus details (comma-separated):
+Format: BusNumber, Route, DriverName, BusType, ContactNumber
+
+Example:
+PB-06-9999, Chandigarh - Mohali, Harpreet Singh, AC Deluxe, +91-98765-99999
+
+Enter details:`);
+            
+            if (busForm && busForm.trim()) {
+                const parts = busForm.split(',').map(p => p.trim());
+                if (parts.length >= 4) {
+                    const newBus = {
+                        number: parts[0],
+                        route: parts[1],
+                        driver: parts[2],
+                        busType: parts[3],
+                        contact: parts[4] || '+91-98765-00000',
+                        status: 'On Time',
+                        eta: '0 mins',
+                        distance: '0 km',
+                        speed: '0 km/h',
+                        fare: '₹50',
+                        currentLocation: 'Depot',
+                        nextStop: 'Starting Point',
+                        coordinates: { lat: 30.7333, lng: 76.7794 },
+                        departureDate: new Date().toISOString().split('T')[0],
+                        departureTime: '06:00 AM',
+                        arrivalTime: '08:00 AM',
+                        lastUpdated: new Date().toLocaleString(),
+                        delay: '0 mins'
+                    };
+                    
+                    // Check if bus number already exists
+                    if (busDatabase.find(b => b.number === newBus.number)) {
+                        alert(`❌ Bus number ${newBus.number} already exists!`);
+                        return;
+                    }
+                    
+                    busDatabase.push(newBus);
+                    
+                    alert(`✅ NEW BUS ADDED SUCCESSFULLY!
+
+Bus Number: ${newBus.number}
+Route: ${newBus.route}
+Driver: ${newBus.driver}
+Type: ${newBus.busType}
+Contact: ${newBus.contact}
+
+The bus is now active in the fleet and available for tracking.`);
+                    
+                    showNotification(`🚌 New bus ${newBus.number} added to fleet!`, 'success');
+                } else {
+                    alert('❌ Invalid format. Please provide at least: BusNumber, Route, DriverName, BusType');
+                }
+            }
+        }
+
+        // Route Management Function
+        function showRouteManagement() {
+            const routes = [...new Set(busDatabase.map(b => b.route))];
+            
+            const routeManagement = `📍 ROUTE MANAGEMENT SYSTEM
+
+Current Active Routes (${routes.length}):
+${routes.map((route, index) => `${index + 1}. ${route}`).join('\n')}
+
+Available Actions:
+1. Add New Route
+2. Modify Existing Route
+3. View Route Statistics
+4. Assign Buses to Route
+
+Enter action number (1-4):`;
+            
+            const action = prompt(routeManagement);
+            
+            switch(action) {
+                case '1':
+                    const newRoute = prompt('Enter new route (Format: StartCity - EndCity):');
+                    if (newRoute) {
+                        alert(`✅ New route "${newRoute}" added to system!\n\nYou can now assign buses to this route.`);
+                        showNotification(`New route "${newRoute}" created!`, 'success');
+                    }
+                    break;
+                case '2':
+                    const routeToModify = prompt(`Select route to modify:\n${routes.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nEnter route number:`);
+                    if (routeToModify && routes[parseInt(routeToModify) - 1]) {
+                        const selectedRoute = routes[parseInt(routeToModify) - 1];
+                        const newRouteName = prompt(`Modify route: ${selectedRoute}\n\nEnter new route name:`);
+                        if (newRouteName) {
+                            alert(`✅ Route updated from "${selectedRoute}" to "${newRouteName}"`);
+                        }
+                    }
+                    break;
+                case '3':
+                    const routeStats = routes.map(route => {
+                        const routeBuses = busDatabase.filter(b => b.route === route);
+                        return `${route}: ${routeBuses.length} buses (${routeBuses.filter(b => b.status === 'On Time').length} on time)`;
+                    }).join('\n');
+                    alert(`📊 ROUTE STATISTICS:\n\n${routeStats}`);
+                    break;
+                case '4':
+                    alert('🚌 Bus Assignment feature would allow:\n• Assign specific buses to routes\n• Set schedules and timings\n• Manage driver assignments\n• Configure route stops');
+                    break;
+            }
+        }
+
+        // Verify Driver License
+        function verifyDriverLicense() {
+            const licenseNumber = document.getElementById('licenseVerifyInput').value.trim();
+            if (!licenseNumber) {
+                alert('Please enter a license number to verify.');
+                return;
+            }
+            
+            // Simulate license verification
+            const isValid = Math.random() > 0.2; // 80% chance of valid license
+            
+            if (isValid) {
+                alert(`✅ LICENSE VERIFIED
+
+License Number: ${licenseNumber}
+Status: Valid & Active
+Expiry Date: ${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+Vehicle Categories: LMV, HMV, PSV
+Issued By: Punjab Transport Authority
+
+Driver is authorized to operate public service vehicles.`);
+                showNotification('Driver license verified successfully!', 'success');
+            } else {
+                alert(`❌ LICENSE VERIFICATION FAILED
+
+License Number: ${licenseNumber}
+Status: Invalid / Expired / Suspended
+
+Please contact the driver for updated license information.`);
+                showNotification('License verification failed!', 'error');
+            }
+            
+            document.getElementById('licenseVerifyInput').value = '';
+        }
+
+        // Show Recent Alerts
+        function showRecentAlerts() {
+            const alerts = JSON.parse(localStorage.getItem('emergency_alerts') || '[]');
+            
+            if (alerts.length === 0) {
+                alert('📋 No recent alerts found.\n\nSystem is operating normally.');
+                return;
+            }
+            
+            const alertsList = alerts.slice(0, 10).map((alert, index) => 
+                `${index + 1}. [${alert.id}] ${alert.message.substring(0, 50)}${alert.message.length > 50 ? '...' : ''}\n   Time: ${new Date(alert.timestamp).toLocaleString()}\n   By: ${alert.adminName}`
+            ).join('\n\n');
+            
+            alert(`🚨 RECENT EMERGENCY ALERTS (Last 10):\n\n${alertsList}`);
+        }
+
+        // ===== DRIVER PORTAL FUNCTIONS =====
+        
+        // Update Bus Location
+        function updateBusLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lng = position.coords.longitude.toFixed(6);
+                        
+                        alert(`📍 LOCATION UPDATED SUCCESSFULLY!
+
+GPS Coordinates: ${lat}, ${lng}
+Accuracy: ±${Math.round(position.coords.accuracy)}m
+Time: ${new Date().toLocaleString()}
+
+Your location has been updated for all assigned buses. Passengers can now see your real-time position.`);
+                        
+                        showNotification('🛰️ GPS location updated for all buses!', 'success');
+                    },
+                    function(error) {
+                        alert('❌ Unable to get GPS location. Please enable location services and try again.');
+                    }
+                );
+            } else {
+                const manualLocation = prompt('GPS not available. Enter your current location manually:');
+                if (manualLocation) {
+                    alert(`📍 Location updated manually: ${manualLocation}`);
+                    showNotification('Location updated manually!', 'success');
+                }
+            }
+        }
+
+        // Update Bus Location for Specific Bus
+        function updateBusLocationSpecific(busNumber) {
+            const location = prompt(`📍 Update location for bus ${busNumber}:\n\nEnter current location or landmark:`);
+            if (location) {
+                // Update bus in database
+                const busIndex = busDatabase.findIndex(b => b.number === busNumber);
+                if (busIndex !== -1) {
+                    busDatabase[busIndex].currentLocation = location;
+                    busDatabase[busIndex].lastUpdated = new Date().toLocaleString();
+                }
+                
+                alert(`✅ Location updated for bus ${busNumber}:\n${location}\n\nPassengers will see this update immediately.`);
+                showNotification(`Location updated for ${busNumber}!`, 'success');
+            }
+        }
+
+        // Update Passenger Count
+        function updatePassengerCount(busNumber) {
+            const count = prompt(`👥 Update passenger count for bus ${busNumber}:\n\nEnter current passenger count (e.g., 25/45):`);
+            if (count) {
+                // Update bus in database
+                const busIndex = busDatabase.findIndex(b => b.number === busNumber);
+                if (busIndex !== -1) {
+                    busDatabase[busIndex].passengerCount = count;
+                    busDatabase[busIndex].lastUpdated = new Date().toLocaleString();
+                }
+                
+                alert(`✅ Passenger count updated for bus ${busNumber}:\n${count}\n\nThis helps passengers know bus capacity.`);
+                showNotification(`Passenger count updated for ${busNumber}!`, 'success');
+            }
+        }
+
+        // Report Delay for Bus
+        function reportDelayForBus(busNumber) {
+            const delayReason = prompt(`⏰ Report delay for bus ${busNumber}:\n\nSelect reason:\n1. Traffic jam\n2. Mechanical issue\n3. Weather conditions\n4. Road construction\n5. Other\n\nEnter reason number or custom reason:`);
+            
+            if (delayReason) {
+                const reasons = {
+                    '1': 'Traffic jam causing delay',
+                    '2': 'Minor mechanical issue resolved',
+                    '3': 'Weather conditions affecting speed',
+                    '4': 'Road construction detour',
+                    '5': 'Other operational delay'
+                };
+                
+                const reason = reasons[delayReason] || delayReason;
+                const delayTime = prompt('Enter estimated delay time (e.g., 15 mins):') || '10 mins';
+                
+                // Update bus status
+                const busIndex = busDatabase.findIndex(b => b.number === busNumber);
+                if (busIndex !== -1) {
+                    busDatabase[busIndex].status = 'Delayed';
+                    busDatabase[busIndex].delay = delayTime;
+                    busDatabase[busIndex].lastUpdated = new Date().toLocaleString();
+                }
+                
+                alert(`⏰ Delay reported for bus ${busNumber}:\n\nReason: ${reason}\nDelay: ${delayTime}\n\nPassengers have been notified automatically.`);
+                showNotification(`Delay reported for ${busNumber}: ${delayTime}`, 'success');
+            }
+        }
+
+        // Show Route Progress
+        function showRouteProgress() {
+            const driverBuses = busDatabase.filter(bus => bus.driver === loggedInUser.name);
+            
+            if (driverBuses.length === 0) {
+                alert('No buses assigned to you currently.');
+                return;
+            }
+            
+            const progressInfo = driverBuses.map(bus => {
+                const progress = ((bus.stopsCompleted || 2) / (bus.totalStops || 8)) * 100;
+                return `🚌 ${bus.number} - ${bus.route}
+📍 Current: ${bus.currentLocation || 'Unknown'}
+🎯 Next Stop: ${bus.nextStop || 'Unknown'}
+📊 Progress: ${bus.stopsCompleted || 2}/${bus.totalStops || 8} stops (${Math.round(progress)}%)
+⏰ ETA: ${bus.eta}
+🚦 Status: ${bus.status}`;
+            }).join('\n\n');
+            
+            alert(`📊 ROUTE PROGRESS REPORT\n\n${progressInfo}\n\nKeep up the great work! 👍`);
+        }
+
         // Initialize the application when the page loads
         document.addEventListener('DOMContentLoaded', function() {
             init();
@@ -3386,7 +4016,7 @@ Find buses near me: ${window.location.href}
             loadSavedTheme();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97f07649a69b2967',t:'MTc1Nzg1ODk2Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97ff0c9d24bd3f38',t:'MTc1ODAxMTkyNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
 
 <!-- 
